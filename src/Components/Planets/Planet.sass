@@ -1,0 +1,119 @@
+@use "sass:math"
+@import '../../variables.module.sass'
+
+// Base values, no nesting to maintain low specificity
+.Planet
+  perspective: $planet-radius * 10 * 1vmin
+  perspective-origin: 50% 50%
+  transform-style: preserve-3d
+  width: $planet-diameter * 1vmin
+  height: $planet-diameter * 1vmin
+  pointer-events: none
+.Sphere
+  position: absolute
+  transform-style: preserve-3d
+  animation: rotate 15s infinite linear
+  will-change: transform
+  width: 100%
+  height: 100%
+.Hemisphere
+  position: absolute
+  top: 0
+  left: 0
+  width: 100%
+  height: 100%
+  transform-style: preserve-3d
+  transform-origin: 50% 50%
+  transform: rotateX(90deg)
+.Island
+  position: absolute
+  transform-style: preserve-3d
+  transform-origin: 50% 0
+  top: 50%
+.Plate
+  position: absolute
+  left: 50%
+  top: 50%
+  transform: translate(-50%,-50%)
+  transform-style: preserve-3d
+  > div
+    width: 100%
+    height: 100%
+    position: absolute
+    transform: rotateY(0deg)
+.Land
+  position: absolute
+  left: 50%
+
+@keyframes rotate
+  0%
+    transform: rotateZ(0deg) rotateX(0deg) rotateY(0deg)
+  100%
+    transform: rotateZ(0deg) rotateX(0deg) rotateY(360deg)
+    
+@mixin gen-island($name, $island-layers, $island-diameter, $rotation, $z-rotation, $position)
+  $island-radius: math.div($island-diameter, 2)
+  $translations: get-random-z-y($position, $island-radius)
+  $island-radius-squared: math.pow($island-radius, 2)
+  $island-height: $planet-radius - math.sqrt($planet-radius-squared - $island-radius-squared) // The final height added by the layers piling on top of one another
+  $shrink-factor: math.div($island-height, $island-layers) // The factor by which to raise the next layer above the previous
+  $base-chord-distance: math.sqrt($planet-radius-squared - $island-radius-squared)
+  .Island--#{$name}
+    transform: translateZ(#{map-get($translations, "trans-z")}vmin ) rotateZ($z-rotation * 1deg) translateY(#{map-get($translations, "trans-y")}vmin) rotateX(#{map-get($translations, "rot-x")})
+    width: $island-diameter * 1vmin
+    height: $island-diameter * 1vmin
+    left: (math.div($planet-diameter - $island-diameter, 2)) * 1vmin
+    .Land
+      height: $island-diameter * 1vmin
+      width: $island-diameter * 1vmin
+  @for $i from 0 through $island-layers - 1
+    $island-layer-radius: math.sqrt($planet-radius-squared - ( math.pow($base-chord-distance + $shrink-factor * $i, 2)) )
+    $island-layer-diameter: 2 * $island-layer-radius
+    $island-layer-radius-next: math.sqrt($planet-radius-squared - ( math.pow($base-chord-distance + $shrink-factor * ($i + 1), 2)) )
+    $window-length: $island-layer-radius - math.sqrt($planet-radius-squared - ( math.pow($base-chord-distance + $shrink-factor * ($i + 1), 2)) )
+    $hole-size: $island-layer-radius-next - $layer-offset-remainder
+    @if $i == $island-layers - 1
+      $hole-size: 0
+    .Island--#{$name}
+      .Plate:nth-child(#{$i})
+        height: #{$island-layer-diameter * 1vmin}
+        width: #{$island-layer-diameter * 1vmin}
+        transform: translate(-50%, -50%) translateZ(#{$i * $shrink-factor * 1vmin}) rotate($rotation * 1deg)
+        > div
+          mask: radial-gradient(circle #{($hole-size * 1vmin)},transparent 100%,#fff 100%)
+        .Land
+          transform: translate(-50%, #{math.div(($island-diameter - $island-layer-diameter), 2) * -1vmin})
+
+@function calculate-translation($side)
+  @return math.sqrt(math.div($planet-radius-squared * $side,  math.div($total-possible-random-positions, 4))) // 4 Quadrants on an xy graph
+
+@function get-random-z-y($seed, $island-radius)
+  $seed-z: $seed
+  @while $seed-z > $quadrant-boundary
+    $seed-z: $seed-z - $quadrant-boundary
+  $trans-z: calculate-translation($seed-z)
+  $seed-y: $quadrant-boundary - $seed-z
+  $trans-y: calculate-translation($seed-y)
+  // Ensure seeds go through all four quadrants equally
+  // 0 ---- z+ y+ ---- 25 ---- z- y+ ---- 50 ---- z+ y- ---- 75 ---- z- y- ---- 100
+  @if $seed >= $first-quadrant-limit and $seed < $second-quadrant-limit or $seed >= $third-quadrant-limit
+    $trans-z: -$trans-z
+  @if $seed >= $second-quadrant-limit
+    $trans-y: -$trans-y
+  $point-angle: 0deg
+  @if ($trans-y >=0 and $trans-z >= 0) or ($trans-y < 0 and $trans-z < 0)
+    $point-angle: math.atan(math.div(math.abs($trans-z), math.abs($trans-y) ))
+  @else
+    $point-angle: math.atan(math.div(math.abs($trans-y), math.abs($trans-z) ))
+  $quadrant-bonus: 0deg
+  @if $trans-z >= 0 and $trans-y < 0
+    $quadrant-bonus: 0deg
+  @if $trans-z < 0 and $trans-y < 0
+    $quadrant-bonus: 90deg
+  @if $trans-z < 0 and $trans-y >= 0
+    $quadrant-bonus: 180deg
+  @if $trans-z >= 0 and $trans-y >= 0
+    $quadrant-bonus: 270deg
+  $chord-center-diff: math.asin(math.div($island-radius, $planet-radius))
+  $rotate-x: $point-angle - $chord-center-diff + $quadrant-bonus
+  @return ("rot-x": $rotate-x, "trans-y": $trans-y, "trans-z": $trans-z)

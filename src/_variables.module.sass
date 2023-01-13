@@ -1,0 +1,57 @@
+@use "sass:math"
+
+// STYLING
+$base-color: rgb(32,35,86)
+
+// EARTH
+// Arbitrary values
+$total-possible-random-positions: 2560 // number of (x,y) positions to pick from when placing Land
+$planet-diameter: 50
+$layer-offset-remainder: 0.6 // If you don't look directly down the axis at all times there is some offset.
+$earth-rotation-speed: 18s
+// Calculations
+$planet-radius: math.div($planet-diameter, 2)
+$planet-radius-squared: math.pow($planet-radius, 2)
+$quadrant-boundary: math.div($total-possible-random-positions, 4) // x-y quadrant limits based on quarters of the total random possible positions
+$first-quadrant-limit: $quadrant-boundary * 1
+$second-quadrant-limit: $quadrant-boundary * 2
+$third-quadrant-limit: $quadrant-boundary * 3
+// Islands
+$africa: (layers: 20, diameter: 26 * math.div($planet-diameter, 42), rotation: -8, z-rotation: 14, position: 10)
+$asia: (layers: 20, diameter: 38 * math.div($planet-diameter, 42), rotation: -4, z-rotation: -45, position: 1919, components: 7)
+$europe: (layers: 20, diameter: 21 * math.div($planet-diameter, 42), rotation: 0, z-rotation: 10, position: 520, components: 8, landmark: true)
+$america: (layers: 20, diameter: 41 * math.div($planet-diameter, 42), rotation: 20, z-rotation: 140, position: 560, components: 4)
+$australasia: (layers: 20, diameter: 24 * math.div($planet-diameter, 42), rotation: -10, z-rotation: -89, position: 1, components: 24)
+// Clouds
+$cloud-layers: 3
+$cloud-scale-factor: 0.3
+$cloud-rotation-speed: 26s
+$cloud-layer-separation-distance: 0.4vmin
+$cloud-total-depth: $cloud-layers * $cloud-layer-separation-distance
+$cloud-separation-from-earth: 1vmin
+$cloud-fin-scale-factor: 0.05
+$cloud--a: (center-to-apex: -95, label: a, width: 632.15px, height: 271.38px)
+$cloud--b: (center-to-apex: 0, label: b, width: 762.01px, height: 301.12px)
+$cloud--c: (center-to-apex: 0, label: c, width: 737.64px, height: 409.58px)
+$cloud--d: (center-to-apex: 0, label: d, width: 778.11px, height: 406.46px)
+$cloud--e: (center-to-apex: 130, label: e, width: 750.41px, height: 391.78px)
+$clouds: $cloud--a, $cloud--b, $cloud--c, $cloud--d, $cloud--e
+$continents: (Africa: $africa, Europe: $europe, Asia: $asia, America: $america, Australasia: $australasia)
+$earth: (continents: $continents, clouds: $clouds)
+
+// EXPORTS
+@mixin rule($key, $value, $prefix)
+  #{$prefix}-#{$key}: $value
+@mixin map-to-string($key1, $value, $prefix)
+  @each $key, $value in $value
+    @include rule($key, $value, #{$prefix + "-" + $key1})
+@mixin map-map-to-string($map, $prefix)
+  @each $key, $value in $map
+    @include map-to-string($key, $value, $prefix)
+@mixin list-map-to-string($list, $prefix)
+  @each $value in $list
+    @include map-to-string(map-get($value, "label"), $value, $prefix)
+:export
+  @include map-map-to-string($continents, "planet-earth-continents")
+  @include list-map-to-string($clouds, "planet-earth-clouds")
+  cloud-layers: $cloud-layers
